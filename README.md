@@ -2,7 +2,7 @@
 
 面向 **MHGU v1.4.0 的 PC MHGURecomp**。单人猎人携带三只不同的已雇佣随从，第三只使用自己的装备、技能和成长记录。**第三只不结算采集、掠夺和鉴定物，前两只照常结算。**
 
-[下载 v0.2.0 测试包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/tag/v0.2.0)
+[下载 v0.2.1 测试包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/tag/v0.2.1)
 
 ## 安装
 
@@ -52,7 +52,7 @@ Rust + mhgu-forge 1.5.0；参考用户提供的 3DS MHXX 三猫金手指思路�
 
 ## 从源码构建
 
-本仓库包含 v0.2.0 的插件源码、默认配置、链接脚本、规则测试和重定位检查工具。游戏程序、游戏资源与本机调试存档不包含在仓库内。
+本仓库包含 v0.2.1 的插件源码、默认配置、链接脚本、规则测试和重定位检查工具。游戏程序、游戏资源与本机调试存档不包含在仓库内。
 
 工程路径须使用纯 ASCII 字符。需要 Rust nightly（含 rust-src）、Arm GNU Toolchain 的 `arm-none-eabi-gcc`、Python 3，以及 `cargo-mhgu-forge` 1.5.0。原构建环境的 Rust 为 `1.101.0-nightly (12433c307 2026-10-24)`；仓库中的 nightly 配置跟随已安装工具链，不保证未来 nightly 的兼容性。
 
@@ -62,7 +62,10 @@ Rust + mhgu-forge 1.5.0；参考用户提供的 3DS MHXX 三猫金手指思路�
 cargo install cargo-mhgu-forge --version 1.5.0 --locked
 cargo forge build --release
 python tools/check_relocations.py three_palicos.nro
+python tools/check_formation.py target/armv7a-none-eabi/release/libthree_palicos.so
 ```
+
+新增站位修复会保留原生地面高度返回寄存器，`check_formation.py` 必须 PASS；它使用同一工具链的 `arm-none-eabi-objdump`，可把完整路径作为脚本第二个参数。未来编译器若改变尾调用形式，应先检查产物，不能忽略失败。
 
 须确保 `arm-none-eabi-gcc` 在 PATH 中，或用环境变量 `CARGO_TARGET_ARMV7A_NONE_EABI_LINKER` 指向它的完整路径。构建后将 `three_palicos.nro` 和 `three_palicos.ini` 放到安装说明中的插件目录。重定位检查必须为 PASS；它不代表功能已在安卓或 Switch 上验证。
 
@@ -84,3 +87,11 @@ rustc --test src/rules.rs -o rules_tests.exe
 ## v0.2.0 更新
 
 新增纸板内第三只选择、取消、姓名提示、配置保存与备份恢复；修复开发测试中发现的目录占用导致保存崩溃，以及同时按 A 时误改原版槽位的问题。战斗、支援与结算逻辑沿用 v0.1.1。详见 [VALIDATION.md](VALIDATION.md)。
+
+## v0.2.1：修复第二、第三只持续重叠
+
+旧版第三只共用第二只的出生站位和普通跟随目标。现在为第三只安排独立的后方站位，并沿用原版移动和地面碰撞处理；前两只、支援及结算逻辑保持原有实现。选择方式不变，仍默认开启。
+
+这是持续共用站位的修复；战斗中追向同一目标、通过窄路或刚换区时仍可能短暂相交，并未给随从增加互相阻挡的实体碰撞。
+
+本轮侧重站位回归，未重新遍历全部支援、力尽恢复、任务结局与角色组合；具体证据和限制见 VALIDATION.md。

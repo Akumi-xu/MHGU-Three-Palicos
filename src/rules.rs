@@ -68,9 +68,27 @@ pub fn board_slot(row: u32, per_page: u32, page: u32) -> Option<u32> {
     Some(row + per_page * page)
 }
 
+// Rotate either native +/-110-degree follow position to a third, rear position.
+pub fn third_formation_offset(x: f32, z: f32, left: bool) -> (f32, f32) {
+    let sin = if left { 0.9396926 } else { -0.9396926 };
+    (0.34202015 * x + sin * z, -sin * x + 0.34202015 * z)
+}
+
 #[cfg(test)]
 mod selector_tests {
     use super::*;
+    #[test]
+    fn third_formation_preserves_radius_and_separates_from_native_second() {
+        for (x, z) in [(200.0, 0.0), (0.0, 200.0), (-187.93852, -68.40403)] {
+            let (a, b) = third_formation_offset(x, z, false);
+            assert!((a * a + b * b - x * x - z * z).abs() < 0.02);
+            assert!((a - x) * (a - x) + (b - z) * (b - z) > 50000.0);
+        }
+        let (x, z) = third_formation_offset(-187.93852, -68.40403, false);
+        assert!(x.abs() < 0.01 && (z + 200.0).abs() < 0.01);
+        let (x, z) = third_formation_offset(187.93852, -68.40403, true);
+        assert!(x.abs() < 0.01 && (z + 200.0).abs() < 0.01);
+    }
     #[test]
     fn board_position_is_bounded_before_reading_the_sort_map() {
         assert_eq!(board_slot(2, 6, 1), Some(8));

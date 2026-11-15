@@ -22,6 +22,7 @@ static CARTS: AtomicU32 = AtomicU32::new(0);
 static EXP_DONE: AtomicU32 = AtomicU32::new(0);
 static COUNT_DONE: AtomicU32 = AtomicU32::new(0);
 static MORALE_DONE: AtomicU32 = AtomicU32::new(0);
+static PLACING: AtomicU32 = AtomicU32::new(0);
 
 unsafe fn r32(a: u32) -> u32 {
     core::ptr::read_volatile(a as *const u32)
@@ -173,6 +174,69 @@ unsafe fn spawn(mgr: u32, p: u32, owner: u32) -> u32 {
         w8(actor + 4378, 1);
     }
     actor
+}
+
+#[forge::hook(offset = 0x11243a8)]
+fn place_companion(actor: u32) -> u32 {
+    let extra = actor != 0 && actor == EXTRA.load(Ordering::Relaxed);
+    if extra {
+        PLACING.store(actor, Ordering::Relaxed);
+    }
+    let result = original!(actor);
+    if extra {
+        PLACING.store(0, Ordering::Relaxed);
+    }
+    result
+}
+
+#[forge::hook(offset = 0x1813bc)]
+fn place_on_ground(
+    world: u32,
+    actor: u32,
+    pos: u32,
+    from: u32,
+    area: u32,
+    hit: u32,
+    flags: u32,
+    mask: u32,
+    option: u32,
+) -> u32 {
+    if actor != 0 && PLACING.load(Ordering::Relaxed) == actor && pos == actor + 64 {
+        unsafe {
+            let owner = r32(r32(actor + 13096) + 1776);
+            let (x, z) = rules::third_formation_offset(
+                rf(pos) - rf(owner + 64),
+                rf(pos + 8) - rf(owner + 72),
+                false,
+            );
+            w32(pos, (rf(owner + 64) + x).to_bits());
+            w32(pos + 8, (rf(owner + 72) + z).to_bits());
+        }
+    }
+    // Keep the tail call: the native ground routine also returns height in VFP s0.
+    original!(world, actor, pos, from, area, hit, flags, mask, option)
+}
+
+#[forge::hook(offset = 0x1136a08)]
+fn follow_target(actor: u32, pos: u32, side: u32) -> u32 {
+    let result = original!(actor, pos, side);
+    if actor != 0 && actor == EXTRA.load(Ordering::Relaxed) {
+        unsafe {
+            let brain = r32(actor + 13096);
+            let direction = r8(side);
+            if r8(brain + 1505) == 0 && (direction == 2 || direction == 3) {
+                let owner = r32(brain + 1776);
+                let (x, z) = rules::third_formation_offset(
+                    rf(pos) - rf(owner + 64),
+                    rf(pos + 8) - rf(owner + 72),
+                    direction == 3,
+                );
+                w32(pos, (rf(owner + 64) + x).to_bits());
+                w32(pos + 8, (rf(owner + 72) + z).to_bits());
+            }
+        }
+    }
+    result
 }
 
 #[forge::hook(offset = 0x2596d0)]
@@ -452,6 +516,9 @@ fn main() {
             (0x6431bc, 0xe92d41f0),
             (0x829b4c, 0xe92d47f0),
             (0x829a60, 0xe92d41f0),
+            (0x11243a8, 0xe92d47f0),
+            (0x1813bc, 0xe92d41f0),
+            (0x1136a08, 0xe92d4ff0),
         ] {
             let got = r32(addr(off));
             if got != want {
@@ -470,5 +537,8 @@ fn main() {
     forge::install_hook!(forge::mem::text_addr(), quest_count);
     forge::install_hook!(forge::mem::text_addr(), support_unlocks);
     forge::install_hook!(forge::mem::text_addr(), board_update);
-    info!("[threecats] v0.2.0 PC preview: offline solo hunter, third cat has no loot");
+    forge::install_hook!(forge::mem::text_addr(), place_companion);
+    forge::install_hook!(forge::mem::text_addr(), place_on_ground);
+    forge::install_hook!(forge::mem::text_addr(), follow_target);
+    info!("[threecats] v0.2.1 PC preview: offline solo hunter, third cat has no loot");
 }
