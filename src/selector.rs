@@ -148,6 +148,7 @@ pub fn board_update(board: u32) -> u32 {
             && call1(0x3f8678, game) != 0
             && r8(net + 1598) == 0
             && virtual1(player, 344) == 0
+            && r8(players + 40028) <= 1
             && r32(board + 60) == 4
             && r32(board + 72) == 3
             && r32(board + 76) == 4;
@@ -189,7 +190,7 @@ pub fn board_update(board: u32) -> u32 {
                 if next >= 0
                     && (p == 0 || r32(p + 768) & 0x20 == 0 || call2(0x25f34c, mgr, index) == 0)
                 {
-                    notice("不可选择：需已雇佣且待机\n不得与前两只重复（原选择保留）");
+                    notice("不可选择：需已雇佣且待机\n不得重复前两只或主控猎喵（原选择保留）");
                 } else if save_index(next) {
                     CHOICE.store(next, Ordering::Relaxed);
                     if next < 0 {

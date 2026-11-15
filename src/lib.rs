@@ -146,7 +146,7 @@ unsafe fn restore_standby() {
     }
 }
 
-// Native uOtomo construction, as in 0x259894's hunter branch, in the unused third actor slot.
+// Native AI uOtomo construction from 0x259894, in the unused third companion slot.
 unsafe fn spawn(mgr: u32, p: u32, owner: u32) -> u32 {
     let actor = call2(0x268cd4, 15952, 16);
     if actor == 0 {
@@ -269,7 +269,7 @@ fn spawn_selected(mgr: u32, phase: u32) -> u32 {
         }
         let owner = call1(0x3f8398, game);
         if owner >= 4 || (0..4).any(|i| i != owner && r32(players + 28 + 4 * i) != 0) {
-            warn!("[threecats] more than one hunter, skipped");
+            warn!("[threecats] more than one player, skipped");
             return result;
         }
         let player = call2(0x274ce4, players, owner);
@@ -278,9 +278,13 @@ fn spawn_selected(mgr: u32, phase: u32) -> u32 {
             warn!("[threecats] index {} is not a hired cat, skipped", index);
             return result;
         }
-        if index as u32 == r8(mgr + 79945) || index as u32 == r8(mgr + 79946) {
+        let mode = r8(players + 40028);
+        if index as u32 == r8(mgr + 79945)
+            || index as u32 == r8(mgr + 79946)
+            || (mode == 1 && index as u32 == r8(mgr + 79944))
+        {
             warn!(
-                "[threecats] index {} duplicates a selected cat, skipped",
+                "[threecats] index {} duplicates a companion or the controlled Prowler, skipped",
                 index
             );
             return result;
@@ -295,12 +299,13 @@ fn spawn_selected(mgr: u32, phase: u32) -> u32 {
         if r8(net + 1598) != 0
             || player == 0
             || virtual1(player, 344) != 0
+            || mode > 1
             || r32(mgr + 28) == 0
             || r32(mgr + 32) == 0
             || r32(mgr + 36) != 0
         {
             warn!(
-                "[threecats] requires an offline solo hunter quest with two native cats, skipped"
+                "[threecats] requires an offline solo Hunter/Prowler quest with two native companions, skipped"
             );
             return result;
         }
@@ -540,5 +545,5 @@ fn main() {
     forge::install_hook!(forge::mem::text_addr(), place_companion);
     forge::install_hook!(forge::mem::text_addr(), place_on_ground);
     forge::install_hook!(forge::mem::text_addr(), follow_target);
-    info!("[threecats] v0.2.1 PC preview: offline solo hunter, third cat has no loot");
+    info!("[threecats] v0.3.0 PC preview: offline solo Hunter/Prowler, third companion has no loot");
 }
