@@ -39,3 +39,28 @@ ThirdPalicoIndex = 3
 ## 开发与参考
 
 Rust + mhgu-forge 1.5.0；参考用户提供的 3DS MHXX 三猫金手指思路，重新定位 GU 逻辑，未沿用 3DS 地址。由 Codex（GPT-6）协助实现。发布包不包含游戏文件、存档或密钥。
+
+## 从源码构建
+
+本仓库包含 v0.1.0 的插件源码、默认配置、链接脚本、规则测试和重定位检查工具。游戏程序、游戏资源与本机调试存档不包含在仓库内。
+
+工程路径须使用纯 ASCII 字符。需要 Rust nightly（含 rust-src）、Arm GNU Toolchain 的 `arm-none-eabi-gcc`、Python 3，以及 `cargo-mhgu-forge` 1.5.0。原构建环境的 Rust 为 `1.101.0-nightly (12433c307 2026-10-24)`；仓库中的 nightly 配置跟随已安装工具链，不保证未来 nightly 的兼容性。
+
+在源码根目录执行：
+
+```powershell
+cargo install cargo-mhgu-forge --version 1.5.0 --locked
+cargo forge build --release
+python tools/check_relocations.py three_palicos.nro
+```
+
+须确保 `arm-none-eabi-gcc` 在 PATH 中，或用环境变量 `CARGO_TARGET_ARMV7A_NONE_EABI_LINKER` 指向它的完整路径。构建后将 `three_palicos.nro` 和 `three_palicos.ini` 放到安装说明中的插件目录。重定位检查必须为 PASS；它不代表功能已在安卓或 Switch 上验证。
+
+配置解析和活动标记恢复测试（Windows）：
+
+```powershell
+rustc --test src/rules.rs -o rules_tests.exe
+.\rules_tests.exe
+```
+
+`src/lib.rs` 为运行时逻辑，`src/rules.rs` 为可独立测试的配置与状态恢复规则。Hook 偏移针对上述游戏版本，移植到其他游戏版本前须重新核对。重定位检查脚本改编自 Forge PR #7（Lawrence-al），并补充 NRO 解析。
