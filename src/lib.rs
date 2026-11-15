@@ -456,5 +456,5 @@ fn main() {
     forge::install_hook!(forge::mem::text_addr(), experience);
     forge::install_hook!(forge::mem::text_addr(), quest_count);
     forge::install_hook!(forge::mem::text_addr(), support_unlocks);
-    info!("[threecats] v0.1.0 PC preview: offline solo hunter, third cat has no loot");
+    info!("[threecats] v0.1.1 PC preview: offline solo hunter, third cat has no loot");
 }
