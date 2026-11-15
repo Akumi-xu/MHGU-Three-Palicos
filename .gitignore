@@ -1,4 +1,4 @@
 /target/
-/*.nro
-/*.so
-/rules_tests*
+*.nro
+*.so
+/rules_tests.exe

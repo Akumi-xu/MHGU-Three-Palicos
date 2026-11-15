@@ -60,3 +60,25 @@ mod tests {
 pub fn restore_status(active: u32, original: u32) -> u32 {
     (active & !0x23) | (original & 0x23)
 }
+
+pub fn board_slot(row: u32, per_page: u32, page: u32) -> Option<u32> {
+    if per_page != 6 || row >= per_page || page >= 14 {
+        return None;
+    }
+    Some(row + per_page * page)
+}
+
+#[cfg(test)]
+mod selector_tests {
+    use super::*;
+    #[test]
+    fn board_position_is_bounded_before_reading_the_sort_map() {
+        assert_eq!(board_slot(2, 6, 1), Some(8));
+        assert_eq!(board_slot(5, 6, 13), Some(83));
+        for args in [(6, 6, 0), (0, 0, 0), (0, 6, 14), (0, 84, 0)] {
+            assert_eq!(board_slot(args.0, args.1, args.2), None);
+        }
+        let order = [13, 9, 8, 11, 12, 10, 0, 1, 2];
+        assert_eq!(order[board_slot(2, 6, 1).unwrap() as usize], 2);
+    }
+}

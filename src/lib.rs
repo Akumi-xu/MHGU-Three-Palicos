@@ -5,10 +5,12 @@ use core::sync::atomic::{AtomicU32, Ordering};
 use forge::log::prelude::*;
 extern crate alloc;
 mod rules;
+mod selector;
 use forge::mt::{
     fs::{MtFile, OpenMode},
     object::Object,
 };
+use selector::board_update;
 
 static BASE: AtomicU32 = AtomicU32::new(0);
 static EXTRA: AtomicU32 = AtomicU32::new(0);
@@ -81,6 +83,23 @@ unsafe fn name<'a>(p: u32) -> &'a str {
     core::str::from_utf8(&buf[..buf.iter().position(|x| *x == 0).unwrap_or(32)]).unwrap_or("?")
 }
 
+fn read_index(path: &str) -> Option<i32> {
+    let path = alloc::ffi::CString::new(path).ok()?;
+    let file = MtFile::open(&path, OpenMode::Read).ok()?;
+    let mut buf = [0u8; 4096];
+    let size = file.size();
+    let result = if size <= buf.len() && file.read(&mut buf[..size]) == size {
+        core::str::from_utf8(&buf[..size])
+            .ok()
+            .and_then(rules::parse_index)
+    } else {
+        None
+    };
+    file.close();
+    file.destroy();
+    result
+}
+
 fn load_index() -> i32 {
     if !forge::fs::savedata::mount() {
         warn!("[threecats] cannot mount savedata to read config, disabled");
@@ -91,25 +110,15 @@ fn load_index() -> i32 {
         "{}:/nativeNX/plugins/three_palicos.ini",
         forge::fs::romfs::mount_point()
     );
-    let path = if forge::fs::file_exists(&saved) {
-        &saved
+    let backup = alloc::format!("{}.bak", saved);
+    let index = if forge::fs::file_exists(&saved) {
+        read_index(&saved)
+    } else if forge::fs::file_exists(&backup) {
+        // Recover a selection if interrupted between renaming the old and new files.
+        read_index(&backup)
     } else {
-        &bundled
+        read_index(&bundled)
     };
-    let mut index = None;
-    if let Ok(path) = alloc::ffi::CString::new(path.as_str()) {
-        if let Ok(file) = MtFile::open(&path, OpenMode::Read) {
-            let mut buf = [0u8; 4096];
-            let size = file.size();
-            if size <= buf.len() && file.read(&mut buf[..size]) == size {
-                if let Ok(text) = core::str::from_utf8(&buf[..size]) {
-                    index = rules::parse_index(text);
-                }
-            }
-            file.close();
-            file.destroy();
-        }
-    }
     forge::fs::savedata::unmount();
     if index.is_none() {
         warn!(
@@ -439,6 +448,10 @@ fn main() {
             (0x3905c8, 0xe92d47f0),
             (0x262bd0, 0xe92d48f0),
             (0x2625cc, 0xe92d4ff0),
+            (0x748174, 0xe92d41f0),
+            (0x6431bc, 0xe92d41f0),
+            (0x829b4c, 0xe92d47f0),
+            (0x829a60, 0xe92d41f0),
         ] {
             let got = r32(addr(off));
             if got != want {
@@ -456,5 +469,6 @@ fn main() {
     forge::install_hook!(forge::mem::text_addr(), experience);
     forge::install_hook!(forge::mem::text_addr(), quest_count);
     forge::install_hook!(forge::mem::text_addr(), support_unlocks);
-    info!("[threecats] v0.1.1 PC preview: offline solo hunter, third cat has no loot");
+    forge::install_hook!(forge::mem::text_addr(), board_update);
+    info!("[threecats] v0.2.0 PC preview: offline solo hunter, third cat has no loot");
 }
