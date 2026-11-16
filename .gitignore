@@ -1,4 +1,3 @@
 /target/
-*.nro
-*.so
+/*.nro
 /rules_tests.exe

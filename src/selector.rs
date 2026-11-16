@@ -4,6 +4,7 @@ use core::sync::atomic::AtomicI32;
 static CHOICE: AtomicI32 = AtomicI32::new(-1);
 static INSIDE: AtomicU32 = AtomicU32::new(0);
 static HELD: AtomicU32 = AtomicU32::new(0);
+static COMBO: AtomicU32 = AtomicU32::new(rules::DEFAULT_COMBO);
 
 unsafe extern "C" {
     #[link_name = "_ZN2nn2fs12GetEntryTypeEPNS0_18DirectoryEntryTypeEPKc"]
@@ -43,6 +44,7 @@ unsafe fn write_temp(path: &str, data: &[u8]) -> bool {
 static mut MESSAGE: [u8; 256] = [0; 256];
 
 unsafe fn notice(message: &str) {
+    let message = alloc::format!("{}\n{}：设置或取消", message, rules::combo_name(COMBO.load(Ordering::Relaxed)));
     let text = core::ptr::addr_of_mut!(MESSAGE).cast::<u8>();
     let len = message.len().min(255);
     core::ptr::copy_nonoverlapping(message.as_ptr(), text, len);
@@ -73,7 +75,7 @@ unsafe fn move_file(from: &str, to: &str) -> bool {
     call2(0x829b4c, from.as_ptr() as u32, to.as_ptr() as u32) != 0
 }
 
-fn save_index(index: i32) -> bool {
+pub(super) fn save_selection(index: i32, combo: u32) -> bool {
     if !forge::fs::savedata::mount() {
         return false;
     }
@@ -90,9 +92,10 @@ fn save_index(index: i32) -> bool {
             return false;
         }
     }
-    let data = alloc::format!("[ThreePalicos]\nThirdPalicoIndex = {}\n", index);
+    let data = rules::format_selection(index, combo);
+    let expected = Some(rules::SelectionConfig { index: Some(index), combo, combo_error: None });
     // MtFile's write path can abort on filesystem errors; use the SDK's checked results.
-    let written = unsafe { write_temp(&temp, data.as_bytes()) } && read_index(&temp) == Some(index);
+    let written = unsafe { write_temp(&temp, data.as_bytes()) } && read_config(&temp) == expected;
     // Commit the temporary file before RenameFile: the port journals new file contents.
     forge::fs::savedata::unmount();
     if !written || !forge::fs::savedata::mount() {
@@ -112,7 +115,7 @@ fn save_index(index: i32) -> bool {
     let result = unsafe {
         if old && !move_file(&path, &backup) {
             false
-        } else if move_file(&temp, &path) && read_index(&path) == Some(index) {
+        } else if move_file(&temp, &path) && read_config(&path) == expected {
             true
         } else {
             if old && !forge::fs::file_exists(&path) {
@@ -130,8 +133,7 @@ pub fn board_update(board: u32) -> u32 {
     unsafe {
         // Use the board's input sample: Forge's frame snapshot can lag a simultaneous A press.
         let pad = r32(addr(0x188c670));
-        let combo = pad != 0 && r32(pad + 27636) & 0x404 == 0x404;
-        let pressed = HELD.swap(combo as u32, Ordering::Relaxed) == 0 && combo;
+        let buttons = if pad != 0 { r32(pad + 27636) } else { 0 };
         let game = r32(addr(0x188ca48));
         let net = r32(addr(0x18843f0));
         let players = r32(addr(0x1885b58));
@@ -157,7 +159,10 @@ pub fn board_update(board: u32) -> u32 {
             return original!(board);
         }
         if INSIDE.swap(1, Ordering::Relaxed) == 0 {
-            let index = load_index();
+            let config = load_config();
+            let index = config.index.unwrap_or(-1);
+            COMBO.store(config.combo, Ordering::Relaxed);
+            HELD.store((buttons & config.combo == config.combo) as u32, Ordering::Relaxed);
             CHOICE.store(index, Ordering::Relaxed);
             let p = if index >= 0 {
                 roster(mgr, index as u32)
@@ -172,10 +177,14 @@ pub fn board_update(board: u32) -> u32 {
                 "不可用，请重新选择"
             };
             notice(&alloc::format!(
-                "第三只：{}\nZL+按下右摇杆：设置或取消",
-                label
+                "第三只：{}{}",
+                label,
+                config.combo_error.map(|reason| alloc::format!("（{}，已用默认键）", reason)).unwrap_or_default()
             ));
         }
+        let mask = COMBO.load(Ordering::Relaxed);
+        let combo = buttons & mask == mask;
+        let pressed = HELD.swap(combo as u32, Ordering::Relaxed) == 0 && combo;
         if pressed {
             if let Some(slot) =
                 rules::board_slot(r8(board + 189), r8(board + 190), r16(board + 192))
@@ -190,16 +199,16 @@ pub fn board_update(board: u32) -> u32 {
                 if next >= 0
                     && (p == 0 || r32(p + 768) & 0x20 == 0 || call2(0x25f34c, mgr, index) == 0)
                 {
-                    notice("不可选择：需已雇佣且待机\n不得重复前两只或主控猎喵（原选择保留）");
-                } else if save_index(next) {
+                    notice("不可选择：需待机，不得重复前两只或主控猎喵");
+                } else if save_selection(next, mask) {
                     CHOICE.store(next, Ordering::Relaxed);
                     if next < 0 {
-                        notice("已保存：第三只已关闭\n下次出发生效");
+                        notice("已保存：第三只已关闭（下次出发生效）");
                     } else {
-                        notice(&alloc::format!("第三只已保存：{}\n下次出发生效", name(p)));
+                        notice(&alloc::format!("第三只已保存：{}（下次出发生效）", name(p)));
                     }
                 } else {
-                    notice("保存失败，保留原选择\n请检查存档目录权限或可用空间");
+                    notice("保存失败，保留原选择；请检查存档权限/空间");
                 }
             }
         }
@@ -211,6 +220,8 @@ pub fn board_update(board: u32) -> u32 {
         let result = original!(board);
         if r32(board + 76) == 4 {
             draw_notice();
+        } else {
+            INSIDE.store(0, Ordering::Relaxed);
         }
         result
     }

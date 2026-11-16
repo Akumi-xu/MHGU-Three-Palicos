@@ -6,6 +6,7 @@ use forge::log::prelude::*;
 extern crate alloc;
 mod rules;
 mod selector;
+mod purple_lib;
 use forge::mt::{
     fs::{MtFile, OpenMode},
     object::Object,
@@ -84,7 +85,7 @@ unsafe fn name<'a>(p: u32) -> &'a str {
     core::str::from_utf8(&buf[..buf.iter().position(|x| *x == 0).unwrap_or(32)]).unwrap_or("?")
 }
 
-fn read_index(path: &str) -> Option<i32> {
+fn read_config(path: &str) -> Option<rules::SelectionConfig> {
     let path = alloc::ffi::CString::new(path).ok()?;
     let file = MtFile::open(&path, OpenMode::Read).ok()?;
     let mut buf = [0u8; 4096];
@@ -92,7 +93,7 @@ fn read_index(path: &str) -> Option<i32> {
     let result = if size <= buf.len() && file.read(&mut buf[..size]) == size {
         core::str::from_utf8(&buf[..size])
             .ok()
-            .and_then(rules::parse_index)
+            .map(rules::parse_config)
     } else {
         None
     };
@@ -101,10 +102,13 @@ fn read_index(path: &str) -> Option<i32> {
     result
 }
 
-fn load_index() -> i32 {
+fn load_config() -> rules::SelectionConfig {
+    let unavailable = rules::SelectionConfig {
+        index: None, combo: rules::DEFAULT_COMBO, combo_error: None,
+    };
     if !forge::fs::savedata::mount() {
         warn!("[threecats] cannot mount savedata to read config, disabled");
-        return -1;
+        return unavailable;
     }
     let saved = alloc::format!("{}:/three_palicos.ini", forge::fs::savedata::mount_point());
     let bundled = alloc::format!(
@@ -112,23 +116,30 @@ fn load_index() -> i32 {
         forge::fs::romfs::mount_point()
     );
     let backup = alloc::format!("{}.bak", saved);
-    let index = if forge::fs::file_exists(&saved) {
-        read_index(&saved)
+    let config = if forge::fs::file_exists(&saved) {
+        read_config(&saved)
     } else if forge::fs::file_exists(&backup) {
         // Recover a selection if interrupted between renaming the old and new files.
-        read_index(&backup)
+        read_config(&backup)
     } else {
-        read_index(&bundled)
+        read_config(&bundled)
     };
     forge::fs::savedata::unmount();
-    if index.is_none() {
+    let config = config.unwrap_or(unavailable);
+    if config.index.is_none() {
         warn!(
             "[threecats] unreadable/invalid config: use [ThreePalicos], one ThirdPalicoIndex=-1..83; disabled"
         );
     }
-    let index = index.unwrap_or(-1);
-    info!("[threecats] ThirdPalicoIndex={}", index);
-    index
+    if let Some(reason) = config.combo_error {
+        warn!("[threecats] SelectCombo: {}; using ZL+RSTICK", reason);
+    }
+    info!("[threecats] ThirdPalicoIndex={} SelectCombo={}", config.index.unwrap_or(-1), rules::combo_name(config.combo));
+    config
+}
+
+fn load_index() -> i32 {
+    load_config().index.unwrap_or(-1)
 }
 
 unsafe fn original_status(p: u32) -> u32 {
@@ -545,5 +556,10 @@ fn main() {
     forge::install_hook!(forge::mem::text_addr(), place_companion);
     forge::install_hook!(forge::mem::text_addr(), place_on_ground);
     forge::install_hook!(forge::mem::text_addr(), follow_target);
-    info!("[threecats] v0.3.0 PC preview: offline solo Hunter/Prowler, third companion has no loot");
+    info!("[threecats] v0.4.1 PC preview: optional Purple-lib combo settings, third companion has no loot");
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn forge_onUpdate(_delta: f32) {
+    purple_lib::update();
 }

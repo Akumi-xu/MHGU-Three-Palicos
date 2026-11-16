@@ -1,3 +1,88 @@
+extern crate alloc;
+
+pub const DEFAULT_COMBO: u32 = 0x404;
+// Native sPad+27636 bits, not nn::hid / Forge button ordinals.
+pub const COMBO_BUTTONS: [(&str, u32); 6] = [
+    ("L", 0x100), ("R", 0x200), ("ZL", 0x400), ("ZR", 0x800),
+    ("LSTICK", 0x2), ("RSTICK", 0x4),
+];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SelectionConfig {
+    pub index: Option<i32>,
+    pub combo: u32,
+    pub combo_error: Option<&'static str>,
+}
+
+pub fn parse_combo(value: &str) -> Result<u32, &'static str> {
+    let mut mask = 0;
+    for token in value.split('+') {
+        let bit = COMBO_BUTTONS.iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case(token.trim()))
+            .map(|(_, bit)| *bit)
+            .ok_or("包含未知或不支持的按键")?;
+        if mask & bit != 0 {
+            return Err("包含重复按键");
+        }
+        mask |= bit;
+    }
+    if mask.count_ones() < 2 {
+        return Err("需要至少两个不同按键");
+    }
+    Ok(mask)
+}
+
+pub fn parse_config(text: &str) -> SelectionConfig {
+    let mut section = false;
+    let mut found = None;
+    for line in text.trim_start_matches('\u{feff}').lines() {
+        let line = line.split([';', '#']).next().unwrap_or("").trim();
+        if line.starts_with('[') {
+            section = line == "[ThreePalicos]";
+        } else if section {
+            if let Some((key, value)) = line.split_once('=') {
+                if key.trim() == "SelectCombo" {
+                    if found.is_some() {
+                        found = Some(Err("SelectCombo重复定义"));
+                        break;
+                    }
+                    found = Some(parse_combo(value.trim()));
+                }
+            }
+        }
+    }
+    let (combo, combo_error) = match found.unwrap_or(Ok(DEFAULT_COMBO)) {
+        Ok(mask) => (mask, None),
+        Err(reason) => (DEFAULT_COMBO, Some(reason)),
+    };
+    SelectionConfig { index: parse_index(text), combo, combo_error }
+}
+
+pub fn combo_name(mask: u32) -> alloc::string::String {
+    let mut text = alloc::string::String::new();
+    for (name, bit) in COMBO_BUTTONS {
+        if mask & bit != 0 {
+            if !text.is_empty() { text.push('+'); }
+            text.push_str(name);
+        }
+    }
+    text
+}
+
+pub fn set_combo_button(mask: u32, row: u32, enabled: u32) -> u32 {
+    let Some((_, bit)) = COMBO_BUTTONS.get(row as usize) else { return mask };
+    let next = match enabled {
+        0 => mask & !bit,
+        1 => mask | bit,
+        _ => return mask,
+    };
+    if next.count_ones() >= 2 { next } else { mask }
+}
+
+pub fn format_selection(index: i32, combo: u32) -> alloc::string::String {
+    alloc::format!("[ThreePalicos]\nThirdPalicoIndex = {}\nSelectCombo = {}\n", index, combo_name(combo))
+}
+
 pub fn parse_index(text: &str) -> Option<i32> {
     let mut section = false;
     let mut found = None;
@@ -26,6 +111,63 @@ pub fn parse_index(text: &str) -> Option<i32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn menu_toggles_keep_every_combo_valid_and_allow_row_cancel() {
+        for bits in 0u32..64 {
+            if bits.count_ones() < 2 { continue; }
+            let mask = COMBO_BUTTONS.iter().enumerate().fold(0, |m, (i, (_, bit))|
+                m | if bits & (1 << i) != 0 { *bit } else { 0 });
+            assert_eq!(parse_combo(&combo_name(mask)), Ok(mask));
+            for row in 0..6 {
+                let bit = COMBO_BUTTONS[row as usize].1;
+                let before = (mask & bit != 0) as u32;
+                let after = set_combo_button(mask, row, 1 - before);
+                assert!(after.count_ones() >= 2);
+                assert_eq!(set_combo_button(after, row, before), mask);
+            }
+            assert_eq!(set_combo_button(mask, 6, 1), mask);
+            assert_eq!(set_combo_button(mask, 0, 2), mask);
+        }
+        let mut mask = DEFAULT_COMBO;
+        for (row, value) in [(0,1), (1,1), (2,0), (5,0)] {
+            mask = set_combo_button(mask, row, value);
+        }
+        assert_eq!(mask, 0x300);
+    }
+    #[test]
+    fn combo_defaults_keep_old_configs_compatible() {
+        let old = parse_config("[ThreePalicos]\nThirdPalicoIndex=3");
+        assert_eq!(old, SelectionConfig { index: Some(3), combo: 0x404, combo_error: None });
+        assert_eq!(parse_config("[Other]\nSelectCombo=L+R").combo, DEFAULT_COMBO);
+        assert_eq!(parse_config("[ThreePalicos]\nThirdPalicoIndex=bad\nSelectCombo=L+R").index, None);
+    }
+    #[test]
+    fn combo_names_map_to_native_pad_bits() {
+        assert_eq!(parse_combo(" l + r "), Ok(0x300));
+        assert_eq!(parse_combo("zl+rstICK"), Ok(0x404));
+        assert_eq!(parse_combo("ZR+LSTICK+R"), Ok(0xa02));
+        assert_eq!(parse_combo("L+R+ZL+ZR+LSTICK+RSTICK"), Ok(0xf06));
+    }
+    #[test]
+    fn malformed_combo_uses_default_without_disabling_cat() {
+        for value in ["", "L", "L+L", "L+R+L", "L+A", "ZL+UP", "L+", "+L", "Ctrl+F8"] {
+            let text = format!("[ThreePalicos]\nThirdPalicoIndex=9\nSelectCombo={value}");
+            let config = parse_config(&text);
+            assert_eq!(config.index, Some(9));
+            assert_eq!(config.combo, DEFAULT_COMBO);
+            assert!(config.combo_error.is_some());
+        }
+        assert_eq!(parse_config("[ThreePalicos]\nSelectCombo=L+R\nSelectCombo=ZL+ZR").combo_error, Some("SelectCombo重复定义"));
+    }
+    #[test]
+    fn selection_save_roundtrip_preserves_custom_combo() {
+        let config = parse_config("\u{feff}[ThreePalicos]\nThirdPalicoIndex=3\nSelectCombo= r + l ; note");
+        for index in [-1, 0, 83] {
+            let saved = format_selection(index, config.combo);
+            assert!(saved.contains("SelectCombo = L+R\n"));
+            assert_eq!(parse_config(&saved), SelectionConfig { index: Some(index), combo: 0x300, combo_error: None });
+        }
+    }
     #[test]
     fn selection_is_explicit_and_bounded() {
         assert_eq!(parse_index("[ThreePalicos]\nThirdPalicoIndex=3"), Some(3));

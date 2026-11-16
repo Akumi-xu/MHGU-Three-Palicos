@@ -1,32 +1,77 @@
-# 单人三随从猫 v0.3.0（测试版）
+# 单人三随从猫（PC 重编译版，v0.4.1 本地测试）
 
-MHGU v1.4.0 / PC MHGURecomp 0.16.0。猎人或主控猎喵可携带三只不同的AI随从；猎喵模式共四只猫。第三只使用自己的装备、支援和成长，不结算采集、掠夺或鉴定物。前两只及主控猎喵由原版管理，不改变存档格式。
+一名猎人或主控猎喵携带三只不同的已雇佣随从。猎喵模式为主控一只＋AI随从三只，总共四只猫。前两只照常选择，第三只使用自己的装备、支援行动和成长记录。
+第三只不结算采集物。复用原版三猫状态栏，不改变存档格式。
 
-[下载v0.3.0测试版](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/tag/v0.3.0)。源码与安装包对应同一版本；后续更新仅在用户确认后发布。安装、默认配置、游戏内选猫及卸载见同目录纯文本“说明.txt”。默认ThirdPalicoIndex=3，-1关闭。第三只必须已雇佣、待机，不能重复前两只或当前主控猎喵。仅允许原版两只随从的离线单人任务启用；联机和禁止随从任务不启用。
+## 游戏内选择第三只（v0.2.0）
 
-游戏内：随从看板→选择随从→完整列表，高亮待机猫，按ZL＋按下右摇杆设置或取消，左下角提示，下次出发生效。前两只和主控猫继续使用原版菜单。同一存档目录角色共用配置，换角色或解雇猫后重新确认。默认键盘Tab＋Alt冲突，请先改绑。
+回到村内，打开随从看板 → 选择随从 → 打开完整猫列表，高亮一只待机猫，按配置的组合键（默认 **ZL + 按下右摇杆**）。
+左下角会显示第三只姓名、保存结果；再次对同一只按此组合即可关闭。下次出发生效，无需编辑 INI。
+翻页和排序后仍按实际高亮的猫选择；前两只继续用原版菜单选择。排序、留言及确认对话框内不响应。
+键盘按键随移植版绑定；默认 ZL/右摇杆按下为 Tab/Alt，会与系统切换窗口冲突；可设置SelectCombo=L+R，或改绑对应的游戏按键。
 
-## 自行构建
+## 配置
 
-路径须为纯ASCII。需要Rust nightly及rust-src、Arm GNU Toolchain（arm-none-eabi-gcc及objdump）、Python 3和cargo-mhgu-forge 1.5.0。原构建Rust为1.101.0-nightly (12433c307 2026-10-24)；工具链文件跟随已安装nightly，不保证未来编译器兼容。依赖版本由Cargo.lock保留。
+`romfs/nativeNX/plugins/three_palicos.ini`：
 
-```powershell
-cargo install cargo-mhgu-forge --version 1.5.0 --locked
-cargo forge build --release
-python tools/check_relocations.py three_palicos.nro
-python tools/check_formation.py target/armv7a-none-eabi/release/libthree_palicos.so
-rustc --test src/rules.rs -o rules_tests.exe
-.\rules_tests.exe
+```ini
+[ThreePalicos]
+ThirdPalicoIndex = 3
+SelectCombo = ZL+RSTICK
 ```
 
-确保arm-none-eabi-gcc及objdump在PATH，或设置CARGO_TARGET_ARMV7A_NONE_EABI_LINKER为gcc完整路径，并把objdump完整路径作为check_formation.py第二参数。两项产物检查必须PASS；重定位通过不代表实机功能已验证。地面函数还通过VFP寄存器返回高度，尾调用检查失败不可忽略。
+- 默认启用逻辑编号 `3`（初始手动排列第 4 只）；`-1` 禁用；范围 `0..83`。
+- 加载角色后，`[threecats] roster 编号: 名字` 日志列出逻辑编号。排序后的屏幕格子号不等于该编号；推荐直接在游戏内选择。
+- 第三只必须待机，不能与前两只或当前主控猎喵重复；没有两只原版出战猫时不额外生成。猎人模式下，未被操作的预选猎喵仍按原版待机资格判断。
+- 任务开始时固定第三只，改配置到下次出发才生效。
+- 游戏内选择保存到当前存档目录（通常 `save/save_0/three_palicos.ini`），优先于 MOD 包内配置；此前选择另存 `.bak`。主配置缺失时可恢复备份。
+- 配置按移植版存档目录保存，同一目录里的角色共用。更换角色、解雇或替换猫后，请在看板里重新确认第三只。
+- 第三只编号配置无效或选择不可用时保持原版人数；组合键无效仅回退按键默认值。
 
-将生成的three_palicos.nro和默认INI放到游戏mods/THREE_PALICOS/romfs/nativeNX/plugins/，同时安装说明.txt。覆盖前退出游戏并备份存档及旧MOD，避免同时加载两份插件。
+## 自定义选猫组合键（v0.4.0）
 
-## 源码与验证
+在当前生效的`three_palicos.ini`中设置`SelectCombo = L+R`等组合。已有游戏内选猫记录时，修改存档目录的INI（通常`save/save_0/three_palicos.ini`）；没有该文件时才读取包内INI，主文件缺失且有`.bak`时沿用备份。
 
-src/lib.rs为生成、站位、成长和奖励处理；src/selector.rs为看板选择及配置保存；src/rules.rs为独立规则与测试。包含目标配置、链接脚本、依赖锁定、默认配置与检查工具。check_relocations.py改编自Forge PR #7（Lawrence-al），补充NRO解析。
+支持`L`、`R`、`ZL`、`ZR`、`LSTICK`（左摇杆按下）、`RSTICK`（右摇杆按下），至少两个不同按键，以`+`连接；名称不区分大小写，可带空格。同时按住所列按键，先后顺序不限。不支持A/B、方向键、加减键及电脑键名。键盘仍使用移植版现有游戏按键映射。
 
-测试范围与限制见VALIDATION.md。窄路、出入口及集火时模型仍可能相交；没有实体互斥。全部支援/任务结局、主控猎喵力尽流程、安卓与Switch尚未完整验证。
+修改后退出并重新打开完整选猫列表生效。页脚显示当前组合；缺少此项时兼容旧配置，使用默认`ZL+RSTICK`，无效时显示原因并使用默认。进入列表前已按住组合不会误选，需松开重按；长按只触发一次。游戏内选猫保存会同时保留生效组合，失败时保留原配置。
 
-参考用户提供的3DS MHXX金手指思路，重新定位GU逻辑，未套用3DS地址。Rust / mhgu-forge 1.5.0，Codex协助实现。源码包不含游戏程序、资源、存档、密钥或反编译源码。
+## 游戏内设置组合键（v0.4.1，可选 Purple-lib）
+
+另装作者的[Purple-lib r20](https://gamebanana.com/mods/740376)（API 4，r19以上），在游戏内打开：菜单→选项→Mod选项→三随从猫：选猫组合键。六行分别控制L、R、ZL、ZR、LSTICK、RSTICK是否加入组合。A进入编辑，左右切换，A确认；编辑时B取消该行修改。至少保留两键，切换组合时先启用新键，再关闭旧键。简体/繁体游戏语言使用中文页面，其余语言使用英文。
+
+离开本页就保存至原存档目录INI，保留最新第三只编号；重新打开看板的完整选猫列表生效。无法保存时保留原文件并恢复原组合，日志提示原因。每次进入设置页重新读取生效INI；无修改或取消后值相同则不重写。退出整个窗口不会再次覆盖配置。
+
+Purple-lib仅提供这个设置页面，不管理猫的选择、生成或存档。不安装或移除Purple-lib后，三随从猫仍可通过INI设置组合、通过看板选猫。不新增其他菜单功能。ABI定义遵循作者开发指南，MIT署名见THIRD_PARTY_NOTICES.txt。
+
+只对允许随从的离线单人猎人/猎喵任务启用。联机和禁止随从的任务不启用。主控猎喵照常在原版菜单选择、切换，不占第三随从配置；默认第三只仍为3，若它恰好是主控猫，需要另选一只。
+卸载请先回村、保存并退出游戏，再移除 MOD 目录。
+
+本地测试与修复不自动上传GitHub；等用户确认可发布后再上传对应源码、成品和说明。
+
+## 构建与测试
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File 06_tools/build.ps1 -Project three_palicos -NoCopy
+rustc --test 01_plugins/three_palicos/src/rules.rs -o .cache/three_palicos/rules_tests.exe
+.cache/three_palicos/rules_tests.exe
+```
+
+`tools/pc_test.py` 复用工作区现有 `pc_fixture.py` 的换区方法和移植版控制文件。
+它只在 `.cache/three_palicos/runs/` 中创建存档副本，使用现有 exe/dll，不启动 updater，不部署到正式 MOD 目录。
+
+```powershell
+python 01_plugins/three_palicos/tools/pc_test.py start town
+python 01_plugins/three_palicos/tools/pc_test.py state
+python 01_plugins/three_palicos/tools/pc_test.py depart 229
+python 01_plugins/three_palicos/tools/pc_test.py stop
+# 上一轮测试存档的重载；stock 不加载插件，combat 使用运行时已有的战斗夹具。
+python 01_plugins/three_palicos/tools/pc_test.py reload town stock
+```
+
+战斗夹具会固定猎人的位置，只用于伤害归属验证；开启它后不要跨区或用它检查正常移动。
+`MHGU_HITSYNC_DIFF` 记录攻击对象／投射物发射者和怪物伤害字段的实际变化。
+
+详细证据见 `research/MODLOG.md` 和 `VALIDATION.md`。v0.2.1 修复第三只与第二只共用出生和普通跟随站位，第三只使用独立的后方位置；移动、地面碰撞及结算仍由原版处理。战斗中追向同一目标或窄路、换区出入口仍可能相交，没有新增随从之间的实体阻挡。
+已测独立对象、真实伤害、换区、力尽恢复、成功/超时失败/放弃、经验保存重载、重复选择及离线集会所三猫生成。
+未完整覆盖全部支援/装备组合、所有解锁怪物及重复解锁、全部任务类型。猎喵模式的本轮范围以VALIDATION.md为准；联机不启用。安卓及 Switch 未验证。

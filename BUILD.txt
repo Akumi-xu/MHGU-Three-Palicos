@@ -1,0 +1,26 @@
+三随从猫 v0.4.1 本地测试版：自行构建
+
+工程路径必须纯ASCII，例如C:/mods/three_palicos。
+需要Rust nightly + rust-src、cargo-mhgu-forge 1.5.0、Arm GNU Toolchain和Python 3。
+实测Rust 1.101.0-nightly (12433c307 2026-10-24)，Arm GCC 15.2.1。
+Cargo.lock保留实际依赖版本；mhgu-forge 1.5.0。
+将arm-none-eabi-gcc与arm-none-eabi-objdump加入PATH。
+
+在本源码根目录执行：
+cargo forge build --release
+python tools/check_relocations.py three_palicos.nro
+python tools/check_formation.py target/armv7a-none-eabi/release/libthree_palicos.so
+rustc --test src/rules.rs -o rules_tests.exe
+./rules_tests.exe
+
+构建工具若尚未安装：cargo install cargo-mhgu-forge --version 1.5.0 --locked
+两项产物检查必须PASS；重定位通过不等于实机功能已验证。
+
+安装NRO与默认INI到mods/THREE_PALICOS/romfs/nativeNX/plugins/。
+附带THIRD_PARTY_NOTICES.txt：发布时随插件保留作者MIT声明。
+本源码不依赖Purple-lib二进制进行编译；不装它时INI和看板仍工作。
+游戏内组合键页面另装作者Purple-lib r20，API4，r19以上：
+https://gamebanana.com/mods/740376
+接入ABI位于src/purple_lib.rs，注册导出位于link/exported.txt。
+仅PC MHGURecomp 0.16.0 / MHGU1.4.0实测；详情见VALIDATION.md。
+不含游戏程序、资源、存档、密钥或反编译源码。未上传GitHub。
