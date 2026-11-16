@@ -1,5 +1,7 @@
 # 单人三随从猫（PC 重编译版，v0.4.1 本地测试）
 
+[下载安装包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/download/v0.4.1/MHGU_PC_Three_Palicos_v0.4.1.zip) · [版本与历史发布](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases)
+
 一名猎人或主控猎喵携带三只不同的已雇佣随从。猎喵模式为主控一只＋AI随从三只，总共四只猫。前两只照常选择，第三只使用自己的装备、支援行动和成长记录。
 第三只不结算采集物。复用原版三猫状态栏，不改变存档格式。
 
@@ -47,31 +49,24 @@ Purple-lib仅提供这个设置页面，不管理猫的选择、生成或存档�
 只对允许随从的离线单人猎人/猎喵任务启用。联机和禁止随从的任务不启用。主控猎喵照常在原版菜单选择、切换，不占第三随从配置；默认第三只仍为3，若它恰好是主控猫，需要另选一只。
 卸载请先回村、保存并退出游戏，再移除 MOD 目录。
 
-本地测试与修复不自动上传GitHub；等用户确认可发布后再上传对应源码、成品和说明。
+
 
 ## 构建与测试
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File 06_tools/build.ps1 -Project three_palicos -NoCopy
-rustc --test 01_plugins/three_palicos/src/rules.rs -o .cache/three_palicos/rules_tests.exe
-.cache/three_palicos/rules_tests.exe
-```
-
-`tools/pc_test.py` 复用工作区现有 `pc_fixture.py` 的换区方法和移植版控制文件。
-它只在 `.cache/three_palicos/runs/` 中创建存档副本，使用现有 exe/dll，不启动 updater，不部署到正式 MOD 目录。
+完整依赖、构建和检查步骤见 [BUILD.txt](BUILD.txt)。在本仓库根目录执行：
 
 ```powershell
-python 01_plugins/three_palicos/tools/pc_test.py start town
-python 01_plugins/three_palicos/tools/pc_test.py state
-python 01_plugins/three_palicos/tools/pc_test.py depart 229
-python 01_plugins/three_palicos/tools/pc_test.py stop
-# 上一轮测试存档的重载；stock 不加载插件，combat 使用运行时已有的战斗夹具。
-python 01_plugins/three_palicos/tools/pc_test.py reload town stock
+cargo forge build --release
+python tools/check_relocations.py three_palicos.nro
+python tools/check_formation.py target/armv7a-none-eabi/release/libthree_palicos.so
+rustc --test --target x86_64-pc-windows-gnu src/rules.rs -o rules_tests.exe
+./rules_tests.exe
 ```
 
-战斗夹具会固定猎人的位置，只用于伤害归属验证；开启它后不要跨区或用它检查正常移动。
-`MHGU_HITSYNC_DIFF` 记录攻击对象／投射物发射者和怪物伤害字段的实际变化。
+游戏内测试记录见 [VALIDATION.md](VALIDATION.md)；作者本地战斗夹具未随本仓库提供。
 
-详细证据见 `research/MODLOG.md` 和 `VALIDATION.md`。v0.2.1 修复第三只与第二只共用出生和普通跟随站位，第三只使用独立的后方位置；移动、地面碰撞及结算仍由原版处理。战斗中追向同一目标或窄路、换区出入口仍可能相交，没有新增随从之间的实体阻挡。
+详细证据见 [VALIDATION.md](VALIDATION.md)。v0.2.1 修复第三只与第二只共用出生和普通跟随站位，第三只使用独立的后方位置；移动、地面碰撞及结算仍由原版处理。战斗中追向同一目标或窄路、换区出入口仍可能相交，没有新增随从之间的实体阻挡。
 已测独立对象、真实伤害、换区、力尽恢复、成功/超时失败/放弃、经验保存重载、重复选择及离线集会所三猫生成。
 未完整覆盖全部支援/装备组合、所有解锁怪物及重复解锁、全部任务类型。猎喵模式的本轮范围以VALIDATION.md为准；联机不启用。安卓及 Switch 未验证。
+
+仓库保存展开的源码与构建材料；安装包统一从 Release 下载。历史版本及标签保持原样。

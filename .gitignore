@@ -1,3 +1,10 @@
 /target/
 /*.nro
 /rules_tests.exe
+
+/02_build/
+**/target/
+*.nro
+*.so
+*.exe
+__pycache__/
