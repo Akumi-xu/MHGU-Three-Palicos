@@ -1,4 +1,4 @@
-三随从猫 v0.4.1 本地测试版：自行构建
+三随从猫 v0.4.2 本地测试版：自行构建
 
 工程路径必须纯ASCII，例如C:/mods/three_palicos。
 需要Rust nightly + rust-src、cargo-mhgu-forge 1.5.0、Arm GNU Toolchain和Python 3。
@@ -22,5 +22,5 @@ rustc --test --target x86_64-pc-windows-gnu src/rules.rs -o rules_tests.exe
 游戏内组合键页面另装作者Purple-lib r20，API4，r19以上：
 https://gamebanana.com/mods/740376
 接入ABI位于src/purple_lib.rs，注册导出位于link/exported.txt。
-仅PC MHGURecomp 0.16.0 / MHGU1.4.0实测；详情见VALIDATION.md。
+仅PC MHGURecomp 0.17.5 / MHGU1.4.0实测；详情见VALIDATION.md。
 不含游戏程序、资源、存档、密钥或反编译源码。安装包见对应 Release。

@@ -1,4 +1,4 @@
-# 单人三随从猫（PC 重编译版，v0.4.1 本地测试）
+# 单人三随从猫（PC 重编译版，v0.4.2 源码测试版）
 
 [下载安装包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/download/v0.4.1/MHGU_PC_Three_Palicos_v0.4.1.zip) · [版本与历史发布](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases)
 
@@ -70,3 +70,9 @@ rustc --test --target x86_64-pc-windows-gnu src/rules.rs -o rules_tests.exe
 未完整覆盖全部支援/装备组合、所有解锁怪物及重复解锁、全部任务类型。猎喵模式的本轮范围以VALIDATION.md为准；联机不启用。安卓及 Switch 未验证。
 
 仓库保存展开的源码与构建材料；安装包统一从 Release 下载。历史版本及标签保持原样。
+
+## v0.4.2 小地图标记修复
+
+第三只AI的显示颜色字段（actor+10116）原先保持构造默认-1，地图初始化用getColor虚函数(+416)索引四项图标表时越界。生成第三只时将它初始化为3，与前两只1/2和玩家0组成有效编号；不改动AI身份、装备或技能。更新后重新出发才能创建修复后的对象。
+
+当前 v0.4.2 发行附件尚待上传；上方下载安装链接仍指向 v0.4.1。

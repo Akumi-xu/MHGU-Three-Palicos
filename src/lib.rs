@@ -168,6 +168,8 @@ unsafe fn spawn(mgr: u32, p: u32, owner: u32) -> u32 {
     w32(actor + 5068, r32(actor + 5068) | 10);
     w32(actor + 5064, 0);
     w8(actor + 4177, 2);
+    // The map uses virtual getColor (+416) to index its four-entry icon table.
+    w32(actor + 10116, 3);
     w32(actor + 5060, p);
     virtual2(actor, 988, owner);
     let player = call2(0x274ce4, r32(addr(0x1885b58)), owner);
@@ -556,7 +558,7 @@ fn main() {
     forge::install_hook!(forge::mem::text_addr(), place_companion);
     forge::install_hook!(forge::mem::text_addr(), place_on_ground);
     forge::install_hook!(forge::mem::text_addr(), follow_target);
-    info!("[threecats] v0.4.1 PC preview: optional Purple-lib combo settings, third companion has no loot");
+    info!("[threecats] v0.4.2 PC preview: initialize third companion map icon color, third companion has no loot");
 }
 
 #[unsafe(no_mangle)]
