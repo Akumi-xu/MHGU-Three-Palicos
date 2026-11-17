@@ -1,6 +1,6 @@
 # 单人三随从猫（PC 重编译版，v0.4.2 源码测试版）
 
-[下载安装包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/download/v0.4.1/MHGU_PC_Three_Palicos_v0.4.1.zip) · [版本与历史发布](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases)
+[下载安装包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/download/v0.4.2/MHGU_PC_Three_Palicos_v0.4.2.zip) · [v0.4.2 发布页](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/tag/v0.4.2) · [历史发布](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases)
 
 一名猎人或主控猎喵携带三只不同的已雇佣随从。猎喵模式为主控一只＋AI随从三只，总共四只猫。前两只照常选择，第三只使用自己的装备、支援行动和成长记录。
 第三只不结算采集物。复用原版三猫状态栏，不改变存档格式。
@@ -74,5 +74,3 @@ rustc --test --target x86_64-pc-windows-gnu src/rules.rs -o rules_tests.exe
 ## v0.4.2 小地图标记修复
 
 第三只AI的显示颜色字段（actor+10116）原先保持构造默认-1，地图初始化用getColor虚函数(+416)索引四项图标表时越界。生成第三只时将它初始化为3，与前两只1/2和玩家0组成有效编号；不改动AI身份、装备或技能。更新后重新出发才能创建修复后的对象。
-
-当前 v0.4.2 发行附件尚待上传；上方下载安装链接仍指向 v0.4.1。
