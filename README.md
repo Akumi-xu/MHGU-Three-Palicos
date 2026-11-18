@@ -1,6 +1,6 @@
-# 单人三随从猫（PC 重编译版，v0.4.2 源码测试版）
+# 单人三随从猫（Recomp，v0.4.2 源码测试版）
 
-[下载安装包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/download/v0.4.2/MHGU_PC_Three_Palicos_v0.4.2.zip) · [v0.4.2 发布页](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/tag/v0.4.2) · [历史发布](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases)
+[下载安装包](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/download/v0.4.2/MHGU_Three_Palicos_v0.4.2-Recomp.zip) · [v0.4.2 发布页](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases/tag/v0.4.2) · [历史发布](https://github.com/Akumi-xu/MHGU-Three-Palicos/releases)
 
 一名猎人或主控猎喵携带三只不同的已雇佣随从。猎喵模式为主控一只＋AI随从三只，总共四只猫。前两只照常选择，第三只使用自己的装备、支援行动和成长记录。
 第三只不结算采集物。复用原版三猫状态栏，不改变存档格式。
